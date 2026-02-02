@@ -1,1 +1,144 @@
-{"github": {}, "yasno": {}}
+{
+  "github": {
+    "GPV12.1": {
+      "2026-02-02": {
+        "slots": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false
+        ],
+        "status": "normal"
+      },
+      "2026-02-03": {
+        "slots": null,
+        "status": "pending"
+      }
+    },
+    "GPV18.1": {
+      "2026-02-02": {
+        "slots": [
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true
+        ],
+        "status": "normal"
+      },
+      "2026-02-03": {
+        "slots": null,
+        "status": "pending"
+      }
+    }
+  },
+  "yasno": {
+    "GPV12.1": {
+      "2026-02-02": {
+        "slots": null,
+        "status": "emergency"
+      },
+      "2026-02-03": {
+        "slots": null,
+        "status": "emergency"
+      }
+    },
+    "GPV18.1": {
+      "2026-02-02": {
+        "slots": null,
+        "status": "emergency"
+      },
+      "2026-02-03": {
+        "slots": null,
+        "status": "emergency"
+      }
+    }
+  }
+}
