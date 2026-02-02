@@ -1,6 +1,5 @@
 import os
 import json
-import hashlib
 import requests
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -9,7 +8,7 @@ from typing import Optional
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID")
 CONFIG_FILE = "config.json"
-CACHE_FILE = "last_hash.txt"
+CACHE_FILE = "last_schedules.json"
 MESSAGES_FILE = "message_ids.json"
 
 # Kyiv timezone UTC+2
@@ -55,19 +54,20 @@ def get_kyiv_now() -> datetime:
 
 
 def format_hours(hours: float) -> str:
-    """Format hours with proper Ukrainian declension"""
+    """Format hours with proper Ukrainian declension and bold number"""
     if hours == int(hours):
         hours = int(hours)
     
+    # Wrap number in bold tags
     if isinstance(hours, float):
-        return f"{hours} години"
+        return f"<b>{hours}</b> години"
     
     if hours % 10 == 1 and hours % 100 != 11:
-        return f"{hours} година"
+        return f"<b>{hours}</b> година"
     elif hours % 10 in [2, 3, 4] and hours % 100 not in [12, 13, 14]:
-        return f"{hours} години"
+        return f"<b>{hours}</b> години"
     else:
-        return f"{hours} годин"
+        return f"<b>{hours}</b> годин"
 
 
 def format_time(minutes: int) -> str:
@@ -165,11 +165,9 @@ def extract_github_schedules(data: dict, groups: list[str]) -> dict:
             if not day_data:
                 continue
             
-            # Convert timestamp to Kyiv time
             date = datetime.fromtimestamp(int(day_ts), tz=KYIV_TZ)
             date_str = date.strftime("%Y-%m-%d")
             
-            # Check for "pending" status
             if is_all_yes(day_data):
                 result[group][date_str] = {
                     "slots": None,
@@ -233,7 +231,6 @@ def extract_yasno_schedules(data: dict, groups: list[str]) -> dict:
             if not day_data or "date" not in day_data:
                 continue
             
-            # Parse date with Kyiv timezone
             date_str_full = day_data["date"]
             date = datetime.fromisoformat(date_str_full)
             date_str = date.strftime("%Y-%m-%d")
@@ -289,6 +286,51 @@ def schedules_match(slots1: list[bool], slots2: list[bool]) -> bool:
     return slots1 == slots2
 
 
+# === Caching (schedule-based) ===
+
+def schedules_to_cache_format(github_schedules: dict, yasno_schedules: dict) -> dict:
+    """Convert schedules to serializable cache format"""
+    cache = {"github": {}, "yasno": {}}
+    
+    for group, dates in github_schedules.items():
+        cache["github"][group] = {}
+        for date_str, data in dates.items():
+            cache["github"][group][date_str] = {
+                "slots": data["slots"],
+                "status": data["status"]
+            }
+    
+    for group, dates in yasno_schedules.items():
+        cache["yasno"][group] = {}
+        for date_str, data in dates.items():
+            cache["yasno"][group][date_str] = {
+                "slots": data["slots"],
+                "status": data["status"]
+            }
+    
+    return cache
+
+
+def load_cached_schedules() -> dict:
+    """Load cached schedules from file"""
+    try:
+        with open(CACHE_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {"github": {}, "yasno": {}}
+
+
+def save_cached_schedules(cache: dict):
+    """Save schedules cache to file"""
+    with open(CACHE_FILE, "w") as f:
+        json.dump(cache, f, indent=2)
+
+
+def schedules_changed(new_cache: dict, old_cache: dict) -> bool:
+    """Compare new and old schedules to detect changes"""
+    return new_cache != old_cache
+
+
 # === Message formatting ===
 
 def format_schedule_message(
@@ -305,7 +347,6 @@ def format_schedule_message(
     lines = [f"📆 Графік відключень на {date_str} ({day_name}) [{sources_str}]:"]
     lines.append("")
     
-    # Handle special statuses
     if special_status == "emergency":
         lines.append("🚨 АВАРІЙНЕ ВІДКЛЮЧЕННЯ!")
         return "\n".join(lines)
@@ -368,7 +409,6 @@ def format_group_message(
         
         date = (github_data or yasno_data)["date"]
         
-        # Priority: emergency > normal > pending
         if yasno_status == "emergency":
             msg = format_schedule_message([], date, [SOURCE_YASNO], "emergency")
             day_messages.append(msg)
@@ -377,7 +417,6 @@ def format_group_message(
             msg = format_schedule_message(periods, date, [SOURCE_GITHUB, SOURCE_YASNO])
             day_messages.append(msg)
         else:
-            # Different data - show both
             if github_slots:
                 periods = slots_to_periods(github_slots)
                 msg = format_schedule_message(periods, date, [SOURCE_GITHUB])
@@ -417,38 +456,11 @@ def format_full_message(
     if not all_group_messages:
         return None
     
-    # Add update time
     now = get_kyiv_now()
     update_time = now.strftime("%d.%m.%Y %H:%M")
     footer = f"\n\n🕐 Оновлено: {update_time} (Київ)"
     
     return "\n\n\n".join(all_group_messages) + footer
-
-
-# === Caching ===
-
-def compute_combined_hash(github_data: Optional[dict], yasno_data: Optional[dict]) -> str:
-    """Compute hash from combined data"""
-    combined = {
-        "github": github_data.get("meta", {}).get("contentHash", "") if github_data else "",
-        "yasno": json.dumps(yasno_data, sort_keys=True) if yasno_data else ""
-    }
-    return hashlib.sha256(json.dumps(combined, sort_keys=True).encode()).hexdigest()
-
-
-def get_cached_hash() -> Optional[str]:
-    """Get cached hash"""
-    try:
-        with open(CACHE_FILE, "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return None
-
-
-def save_hash(hash_value: str):
-    """Save hash to file"""
-    with open(CACHE_FILE, "w") as f:
-        f.write(hash_value)
 
 
 # === Message ID management ===
@@ -545,13 +557,9 @@ def manage_messages(new_message_id: int):
     """Pin new message, delete old ones if > MAX_MESSAGES"""
     message_ids = load_message_ids()
     
-    # Pin new message
     pin_message(new_message_id)
-    
-    # Add new ID to list
     message_ids.append(new_message_id)
     
-    # Delete old messages if exceeds limit
     while len(message_ids) > MAX_MESSAGES:
         old_id = message_ids.pop(0)
         delete_message(old_id)
@@ -573,7 +581,7 @@ def main():
     print(f"Groups: {', '.join(groups)}")
     print(f"Kyiv time: {get_kyiv_now().strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Fetch data from both sources
+    # Always fetch from both sources
     print("\nFetching GitHub data...")
     github_data = fetch_github_data(region)
     
@@ -584,19 +592,19 @@ def main():
         print("Failed to fetch data from both sources")
         return
     
-    # Check for updates
-    combined_hash = compute_combined_hash(github_data, yasno_data)
-    cached_hash = get_cached_hash()
-    
-    if combined_hash == cached_hash:
-        print("No updates detected")
-        return
-    
-    print(f"New data detected! Hash: {combined_hash[:16]}...")
-    
     # Extract schedules
     github_schedules = extract_github_schedules(github_data, groups) if github_data else {}
     yasno_schedules = extract_yasno_schedules(yasno_data, groups) if yasno_data else {}
+    
+    # Convert to cache format and compare
+    new_cache = schedules_to_cache_format(github_schedules, yasno_schedules)
+    old_cache = load_cached_schedules()
+    
+    if not schedules_changed(new_cache, old_cache):
+        print("No changes detected in schedules")
+        return
+    
+    print("Schedule changes detected!")
     
     # Format message
     message = format_full_message(github_schedules, yasno_schedules, groups)
@@ -615,10 +623,10 @@ def main():
     
     if message_id:
         manage_messages(message_id)
-        save_hash(combined_hash)
-        print("Hash saved")
+        save_cached_schedules(new_cache)
+        print("Cache saved")
     else:
-        print("Failed to send message, hash not saved")
+        print("Failed to send message, cache not updated")
 
 
 if __name__ == "__main__":
