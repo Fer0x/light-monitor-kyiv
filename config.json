@@ -1,6 +1,52 @@
 {
   "groups": ["GPV12.1", "GPV18.1"],
   "region": "kyiv",
-  "yasno_region_id": "25",
-  "yasno_dso_id": "902"
+  
+  "sources": {
+    "github": {
+      "enabled": true,
+      "name": "GitHub-ДТЕК"
+    },
+    "yasno": {
+      "enabled": false,
+      "name": "yasno",
+      "region_id": "25",
+      "dso_id": "902"
+    }
+  },
+  
+  "display": {
+    "format": "table",
+    
+    "icons": {
+      "power_on": "☑️",
+      "power_off": "✖️",
+      "calendar": "🗓",
+      "clock": "⏰",
+      "emergency": "⚠️",
+      "pending": "⏳"
+    },
+    "labels": {
+      "power_on": "Є світло",
+      "power_off": "Нема світла",
+      "emergency": "Аварійне Відключення!",
+      "pending": "Графік ще не опублікований"
+    }
+    
+    "separators": {
+      "source": "✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧",
+      "day": "■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■",
+      "table_row": "----------------------------------------------"
+    },
+    
+    "templates": {
+      "group_header": "========== ◉ {group} ◉ ==========",
+      "day_header": "{icon}  {date} ({weekday}) [{sources}]:"
+    }
+  },
+  
+  "telegram": {
+    "max_messages": 3,
+    "pin_messages": true
+  }
 }
