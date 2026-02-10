@@ -136,6 +136,7 @@ on:
 *   message\_ids.json — stores Telegram message ids to delete older messages (keeps up to MAX\_MESSAGES).
 *   The GitHub Action tries to commit these files back to the repo so the cache persists between runs.
 
+𓆝 𓆟 𓆞 𓆝 𓆟
 
 #### Step-by-step setup (GitHub Actions)
 
