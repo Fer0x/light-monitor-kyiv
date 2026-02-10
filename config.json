@@ -1,7 +1,9 @@
 {
-  "groups": ["GPV12.1", "GPV18.1"],
+  "groups": [
+    "GPV12.1",
+    "GPV18.1"
+  ],
   "region": "kyiv",
-  
   "sources": {
     "github": {
       "enabled": true,
@@ -14,10 +16,8 @@
       "dso_id": "902"
     }
   },
-  
   "display": {
     "format": "table",
-    
     "icons": {
       "power_on": "☑️",
       "power_off": "✖️",
@@ -32,20 +32,17 @@
       "power_off": "Нема світла",
       "emergency": "Аварійне Відключення!",
       "pending": "Графік ще не опублікований"
-    }
-    
+    },
     "separators": {
       "source": "✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧",
       "day": "■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■",
       "table_row": "----------------------------------------------"
     },
-    
     "templates": {
       "group_header": "========== ◉ {group} ◉ ==========",
       "day_header": "{icon}  {date} ({weekday}) [{sources}]:"
     }
   },
-  
   "telegram": {
     "max_messages": 3,
     "pin_messages": true
