@@ -180,6 +180,8 @@ light-monitor-kyiv/
 ##### Корисне
 [Отримати номер групи для Києва із портала YASNO](https://sergeymaximenko.github.io/SetTimeGenerator/GetGroupForKiev.html))
 
+[СвітлоБот](https://svitlobot.in.ua/)
+
 [Svitlobot Map](https://svitlobot.pp.ua/map.php)
 
 [Map - Svitlobot](https://svitlobot.obbdev.com/Map)
