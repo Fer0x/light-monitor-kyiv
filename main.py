@@ -85,6 +85,11 @@ def get_spacing(cfg: dict, space_type: str, default: int = 1) -> str:
     return "\n" * count
 
 
+def get_detail_indent(cfg: dict) -> str:
+    """Get indent for detail intervals"""
+    return cfg['ui']['format'].get('detail_indent', '  ')
+
+
 # === Data Fetching ===
 
 def fetch_github(cfg: dict) -> Optional[dict]:
@@ -241,9 +246,10 @@ def save_cache(cache: dict):
 # === Formatting ===
 
 def render_intervals_detail(periods: list[dict], is_on: bool, cfg: dict) -> str:
-    """Render detailed intervals for on or off periods"""
+    """Render detailed intervals with monospace formatting"""
     icons = cfg['ui']['icons']
     txt = cfg['ui']['text']
+    indent = get_detail_indent(cfg)
     
     filtered = [p for p in periods if p['is_on'] == is_on]
     
@@ -253,10 +259,10 @@ def render_intervals_detail(periods: list[dict], is_on: bool, cfg: dict) -> str:
     total = sum(p['hours'] for p in filtered)
     
     if is_on:
-        icon = icons.get('light_on', '💡')
+        icon = icons.get('light_on', '☀')
         label = txt.get('on_detail', 'Світло буде')
     else:
-        icon = icons.get('light_off', '🔌')
+        icon = icons.get('light_off', '⃠')
         label = txt.get('off_detail', 'Світла не буде')
     
     lines = [f"{icon} {label} {format_hours_full(total)}:"]
@@ -264,7 +270,8 @@ def render_intervals_detail(periods: list[dict], is_on: bool, cfg: dict) -> str:
     for p in filtered:
         time_range = f"{p['start']}-{p['end']}"
         dur = format_hours_short(p['hours'], cfg)
-        lines.append(f"   {time_range}  |  {dur}")
+        # Wrap in <code> for monospace
+        lines.append(f"{indent}<code>{time_range}</code>  |  {dur}")
     
     return "\n".join(lines)
 
@@ -281,8 +288,8 @@ def render_summary_simple(periods: list[dict], cfg: dict) -> str:
     icon_off = icons.get('off_list', icons['off'])
     
     lines = [
-        f"{icon_on} {txt.get('on_full', txt['on'])}: {format_hours_full(total_on)}",
-        f"{icon_off} {txt.get('off_full', txt['off'])}: {format_hours_full(total_off)}"
+        f"{icon_on} {txt.get('on_full')}: {format_hours_full(total_on)}",
+        f"{icon_off} {txt.get('off_full')}: {format_hours_full(total_off)}"
     ]
     return "\n".join(lines)
 
@@ -310,9 +317,10 @@ def render_summary(periods: list[dict], cfg: dict) -> str:
 
 
 def render_table(periods: list[dict], cfg: dict) -> str:
-    """Render aligned ASCII table with icon-only header"""
+    """Render table with configurable format"""
     icons = cfg['ui']['icons']
     fmt = cfg['ui']['format']
+    table_format = cfg['settings'].get('table_format', 'pre')
     
     COL1, COL2, COL3 = 12, 12, 10
     total_width = COL1 + COL2 + COL3 + 2
@@ -337,10 +345,17 @@ def render_table(periods: list[dict], cfg: dict) -> str:
     
     lines.append(sep_line)
     
-    table_text = "\n".join(lines)
+    # Choose format based on config
+    if table_format == 'code_lines':
+        # Each line wrapped in <code>
+        table_text = "\n".join([f"<code>{line}</code>" for line in lines])
+    else:
+        # Traditional <pre> block
+        table_text = f"<pre>{chr(10).join(lines)}</pre>"
+    
     summary = render_summary(periods, cfg)
     
-    return f"<pre>{table_text}</pre>{summary}"
+    return f"{table_text}{summary}"
 
 
 def render_list(periods: list[dict], cfg: dict) -> str:
@@ -395,14 +410,10 @@ def format_footer(cfg: dict) -> str:
     txt = cfg['ui']['text']
     fmt = cfg['ui']['format']
     
-    # Get separator
     footer_sep = fmt.get('separator_footer', '────────────────────')
-    
-    # Get spacing
     space_before = get_spacing(cfg, 'before_footer', 2)
     space_after_sep = get_spacing(cfg, 'after_footer_separator', 1)
     
-    # Format time
     sep = icons.get('separator', '⠅')
     now = get_kyiv_now()
     time_str = now.strftime(f"%d.%m.%Y {sep}%H:%M")
@@ -536,6 +547,7 @@ def main():
     print(f"Region: {cfg['settings']['region']}")
     print(f"Groups: {cfg['settings']['groups']}")
     print(f"Style: {cfg['settings']['style']}")
+    print(f"Table format: {cfg['settings'].get('table_format', 'pre')}")
     print(f"Detail intervals: {cfg['settings'].get('show_intervals_detail', False)}")
     print(f"GitHub: {cfg['sources']['github'].get('enabled', False)}")
     print(f"Yasno: {cfg['sources']['yasno'].get('enabled', False)}")
