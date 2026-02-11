@@ -1,16 +1,16 @@
 {
   "settings": {
     "region": "kyiv",
-    "groups": ["GPV12.1", "GPV18.1"],
+    "groups": ["GPV29.1"],
     "style": "table",
     "table_format": "code_lines",
-    "max_messages": 3,
+    "max_messages": 1,
     "show_intervals_detail": true
   },
   "sources": {
     "github": {
       "enabled": true,
-      "name": "GitHub-ДТЕК"
+      "name": "ДТЕК"
     },
     "yasno": {
       "enabled": true,
@@ -44,10 +44,10 @@
       "hours_short": "год."
     },
     "format": {
-      "header_template": "========== ❖ {group} ❖ ==========",
-      "separator_source": "✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧ ✧",
-      "separator_day": "■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■  ■",
-      "separator_footer": "────────────────────",
+      "header_template": "=== ❖ {group} ❖ ===",
+      "separator_source": "✧ ✧ ✧",
+      "separator_day": "■  ■  ■",
+      "separator_footer": "───",
       "table_separator": "-",
       "detail_indent": "   "
     },
