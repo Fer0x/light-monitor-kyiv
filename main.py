@@ -523,10 +523,10 @@ def manage_msgs(mid: int, cfg: dict):
     except:
         ids = []
     
-    requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage",
-        json={"chat_id": TELEGRAM_CHANNEL_ID, "message_id": mid, "disable_notification": True}
-    )
+    # requests.post(
+    #    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage",
+    #    json={"chat_id": TELEGRAM_CHANNEL_ID, "message_id": mid, "disable_notification": True}
+    #)
     
     ids.append(mid)
     
