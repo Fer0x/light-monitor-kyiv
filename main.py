@@ -50,7 +50,7 @@ def get_kyiv_now() -> datetime:
     return datetime.now(KYIV_TZ)
 
 
-def format_hours_full(hours: float, cfg: dict) -> str:
+def format_hours_full(hours: float) -> str:
     """Format hours with full Ukrainian declension"""
     if hours == int(hours):
         hours = int(hours)
@@ -66,16 +66,23 @@ def format_hours_full(hours: float, cfg: dict) -> str:
 
 def format_hours_short(hours: float, cfg: dict) -> str:
     """Format hours short (for table)"""
-    suffix = cfg['ui']['text'].get('hours_short', 'г')
+    suffix = cfg['ui']['text'].get('hours_short', 'год.')
     if hours == int(hours):
-        return f"{int(hours)}{suffix}"
-    return f"{hours}{suffix}"
+        return f"{int(hours)} {suffix}"
+    return f"{hours} {suffix}"
 
 
 def format_slot_time(slot: int) -> str:
     mins = slot * 30
     h, m = mins // 60, mins % 60
     return "24:00" if h == 24 else f"{h:02d}:{m:02d}"
+
+
+def get_spacing(cfg: dict, space_type: str) -> str:
+    """Get spacing string based on config"""
+    spacing = cfg['ui'].get('spacing', {})
+    count = spacing.get(space_type, 1)
+    return "\n" * count
 
 
 # === Data Fetching ===
@@ -233,24 +240,93 @@ def save_cache(cache: dict):
 
 # === Formatting ===
 
-def render_table(periods: list[dict], cfg: dict) -> str:
-    """Render aligned ASCII table"""
+def render_intervals_detail(periods: list[dict], is_on: bool, cfg: dict) -> str:
+    """Render detailed intervals for on or off periods"""
     icons = cfg['ui']['icons']
     txt = cfg['ui']['text']
+    
+    # Filter periods
+    filtered = [p for p in periods if p['is_on'] == is_on]
+    
+    if not filtered:
+        return ""
+    
+    # Calculate total
+    total = sum(p['hours'] for p in filtered)
+    
+    # Choose icon and text
+    if is_on:
+        icon = icons.get('light_on', '💡')
+        label = txt.get('on_detail', 'Світло буде')
+    else:
+        icon = icons.get('light_off', '🔌')
+        label = txt.get('off_detail', 'Світла не буде')
+    
+    lines = [f"{icon} {label} {format_hours_full(total)}:"]
+    
+    # Add each interval
+    for p in filtered:
+        time_range = f"{p['start']}-{p['end']}"
+        dur = format_hours_short(p['hours'], cfg)
+        lines.append(f"   {time_range}  |  {dur}")
+    
+    return "\n".join(lines)
+
+
+def render_summary_simple(periods: list[dict], cfg: dict) -> str:
+    """Render simple summary (old style)"""
+    icons = cfg['ui']['icons']
+    txt = cfg['ui']['text']
+    
+    total_on = sum(p['hours'] for p in periods if p['is_on'])
+    total_off = sum(p['hours'] for p in periods if not p['is_on'])
+    
+    icon_on = icons.get('on_list', icons['on'])
+    icon_off = icons.get('off_list', icons['off'])
+    
+    lines = [
+        f"{icon_on} {txt.get('on_full', txt['on'])}: {format_hours_full(total_on)}",
+        f"{icon_off} {txt.get('off_full', txt['off'])}: {format_hours_full(total_off)}"
+    ]
+    return "\n".join(lines)
+
+
+def render_summary(periods: list[dict], cfg: dict) -> str:
+    """Render summary - either detailed or simple based on config"""
+    show_detail = cfg['settings'].get('show_intervals_detail', False)
+    
+    if show_detail:
+        on_detail = render_intervals_detail(periods, True, cfg)
+        off_detail = render_intervals_detail(periods, False, cfg)
+        
+        parts = []
+        if on_detail:
+            parts.append(on_detail)
+        if off_detail:
+            parts.append(off_detail)
+        
+        return "\n\n".join(parts)
+    else:
+        return render_summary_simple(periods, cfg)
+
+
+def render_table(periods: list[dict], cfg: dict) -> str:
+    """Render aligned ASCII table with icon-only header"""
+    icons = cfg['ui']['icons']
     fmt = cfg['ui']['format']
     
-    # Column widths
-    COL1, COL2, COL3 = 13, 13, 8
-    total_width = COL1 + COL2 + COL3 + 4
+    # Column widths (adjusted for alignment)
+    COL1, COL2, COL3 = 12, 12, 10
+    total_width = COL1 + COL2 + COL3 + 2  # +2 for separators |
     
     sep_char = fmt.get('table_separator', '-')
     sep_line = sep_char * total_width
     
-    header = f"{txt['off']:^{COL1}}|{txt['on']:^{COL2}}|{txt['time_header']:^{COL3}}"
+    # Icon-only header with proper centering
+    # Note: emojis have variable width, so we adjust padding
+    header = f"    {icons['off']}     |    {icons['on']}     |   {icons['clock']}"
     
     lines = [sep_line, header, sep_line]
-    
-    total_on, total_off = 0.0, 0.0
     
     for p in periods:
         time_range = f"{p['start']}-{p['end']}"
@@ -258,48 +334,38 @@ def render_table(periods: list[dict], cfg: dict) -> str:
         
         if p['is_on']:
             row = f"{'':{COL1}}|{time_range:^{COL2}}|{dur:^{COL3}}"
-            total_on += p['hours']
         else:
             row = f"{time_range:^{COL1}}|{'':{COL2}}|{dur:^{COL3}}"
-            total_off += p['hours']
         
         lines.append(row)
     
     lines.append(sep_line)
     
-    summary = [
-        "",
-        f"{icons['on']} {txt.get('on_full', txt['on'])}: {format_hours_full(total_on, cfg)}",
-        f"{icons['off']} {txt.get('off_full', txt['off'])}: {format_hours_full(total_off, cfg)}"
-    ]
-    
+    # Wrap table in <pre> for monospace
     table_text = "\n".join(lines)
-    return f"<pre>{table_text}</pre>" + "\n".join(summary)
+    
+    # Add summary
+    summary = render_summary(periods, cfg)
+    
+    return f"<pre>{table_text}</pre>\n{summary}"
 
 
 def render_list(periods: list[dict], cfg: dict) -> str:
     """Render list format"""
     icons = cfg['ui']['icons']
-    txt = cfg['ui']['text']
     
-    # Use list-specific icons if available
     icon_on = icons.get('on_list', icons['on'])
     icon_off = icons.get('off_list', icons['off'])
     
     lines = []
-    total_on, total_off = 0.0, 0.0
     
     for p in periods:
         ico = icon_on if p['is_on'] else icon_off
-        lines.append(f"{ico} {p['start']} - {p['end']} … ({format_hours_full(p['hours'], cfg)})")
-        if p['is_on']:
-            total_on += p['hours']
-        else:
-            total_off += p['hours']
+        lines.append(f"{ico} {p['start']} - {p['end']} … ({format_hours_full(p['hours'])})")
     
     lines.append("")
-    lines.append(f"{icon_on} {txt.get('on_full', txt['on'])}: {format_hours_full(total_on, cfg)}")
-    lines.append(f"{icon_off} {txt.get('off_full', txt['off'])}: {format_hours_full(total_off, cfg)}")
+    lines.append(render_summary(periods, cfg))
+    
     return "\n".join(lines)
 
 
@@ -333,11 +399,21 @@ def format_day(data: dict, date: datetime, src: str, cfg: dict) -> str:
 def format_msg(gh: dict, ya: dict, cfg: dict) -> Optional[str]:
     """Format complete message"""
     groups = cfg['settings']['groups']
+    fmt = cfg['ui']['format']
+    
+    # Get separators
+    sep_source = fmt['separator_source']
+    sep_day = fmt['separator_day']
+    
+    # Get spacing
+    space_source = get_spacing(cfg, 'before_separator_source')
+    space_day = get_spacing(cfg, 'before_separator_day')
+    
     blocks = []
     
     for grp in groups:
         grp_num = grp.replace("GPV", "")
-        header = cfg['ui']['format']['header_template'].format(group=grp_num)
+        header = fmt['header_template'].format(group=grp_num)
         
         dates = set()
         if grp in gh:
@@ -379,10 +455,14 @@ def format_msg(gh: dict, ya: dict, cfg: dict) -> Optional[str]:
                     src_msgs.append(format_day(y_d, dt, "yasno", cfg))
             
             if src_msgs:
-                day_msgs.append(f"\n{cfg['ui']['format']['separator_source']}\n".join(src_msgs))
+                # Join sources with spacing
+                source_separator = f"{space_source}{sep_source}\n"
+                day_msgs.append(source_separator.join(src_msgs))
         
         if day_msgs:
-            body = f"\n{cfg['ui']['format']['separator_day']}\n".join(day_msgs)
+            # Join days with spacing
+            day_separator = f"{space_day}{sep_day}\n"
+            body = day_separator.join(day_msgs)
             blocks.append(f"{header}\n{body}")
     
     if not blocks:
@@ -455,6 +535,7 @@ def main():
     print(f"Region: {cfg['settings']['region']}")
     print(f"Groups: {cfg['settings']['groups']}")
     print(f"Style: {cfg['settings']['style']}")
+    print(f"Detail intervals: {cfg['settings'].get('show_intervals_detail', False)}")
     print(f"GitHub: {cfg['sources']['github'].get('enabled', False)}")
     print(f"Yasno: {cfg['sources']['yasno'].get('enabled', False)}")
     
